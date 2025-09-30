@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "llm"
+version = "0.1.0"
+description = "Utilities to deploy two Hugging Face models with vLLM"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{ include = "llm" }]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+python-dotenv = "^1.0.1"
+rich = "^13.7.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.8.0"
+ruff = "^0.6.8"
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "B", "UP", "C90"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.poetry.scripts]
+run-vllm = "run_vllm:main"
+
+
