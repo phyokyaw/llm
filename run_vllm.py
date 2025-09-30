@@ -22,40 +22,55 @@ class ServerConfig:
     dtype: str = "float16"
     host: str = "0.0.0.0"
     max_model_len: int = 8192
+    cuda_visible_devices: Optional[str] = None
 
 
-def read_server(prefix: str, default_name: str) -> Optional[ServerConfig]:
-    def getenv(key: str, default: Optional[str] = None) -> Optional[str]:
-        return os.getenv(f"{prefix}_{key}", default)
+def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
+    # New schema: LLM_*{index}
+    def get_new(name: str, default: Optional[str] = None) -> Optional[str]:
+        return os.getenv(f"LLM_{name}{index}", default)
 
-    model = getenv("MODEL")
+    # Backward-compat: VM{index}_*
+    def get_old(name: str, default: Optional[str] = None) -> Optional[str]:
+        return os.getenv(f"VM{index}_{name}", default)
+
+    def choose(new_key: str, old_key: str, default: Optional[str] = None) -> Optional[str]:
+        val = get_new(new_key)
+        if val is not None and val != "":
+            return val
+        return get_old(old_key, default)
+
+    model = choose("MODEL", "MODEL")
     if not model:
         return None
 
-    port_str = getenv("PORT", "8000")
+    default_port = "8000" if index == 1 else "8001"
+    port_str = choose("PORT", "PORT", default_port)
     try:
         port = int(port_str)
     except ValueError:
-        raise SystemExit(f"Invalid {prefix}_PORT: {port_str}")
+        raise SystemExit(f"Invalid port for server {index}: {port_str}")
 
-    tp_str = getenv("TP", getenv("TENSOR_PARALLEL_SIZE", "1"))
+    tp_str = choose("TP", "TP", None) or choose("TENSOR_PARALLEL_SIZE", "TENSOR_PARALLEL_SIZE", "1")
     try:
         tp = int(tp_str)
     except ValueError:
-        raise SystemExit(f"Invalid {prefix}_TP: {tp_str}")
+        raise SystemExit(f"Invalid TP for server {index}: {tp_str}")
 
-    dtype = getenv("DTYPE", "float16")
-    host = getenv("HOST", "0.0.0.0")
-    max_len = int(getenv("MAX_MODEL_LEN", "8192"))
+    dtype = choose("DTYPE", "DTYPE", "float16")
+    host = choose("HOST", "HOST", "0.0.0.0")
+    max_len = int(choose("MAX_MODEL_LEN", "MAX_MODEL_LEN", "8192"))
+    cuda = get_new("CUDA_VISIBLE_DEVICES", None) or get_old("CUDA_VISIBLE_DEVICES", None)
 
     return ServerConfig(
-        name=getenv("NAME", default_name),
+        name=choose("NAME", "NAME", default_name),
         model=model,
         port=port,
         tensor_parallel_size=tp,
         dtype=dtype,
         host=host,
         max_model_len=max_len,
+        cuda_visible_devices=cuda,
     )
 
 
@@ -82,10 +97,15 @@ def start_server(cfg: ServerConfig, env: dict) -> subprocess.Popen:
         str(cfg.max_model_len),
     ]
 
-    console.print(f"Starting vLLM [{cfg.name}] on port {cfg.port} for model {cfg.model}")
+    run_env = env.copy()
+    if cfg.cuda_visible_devices:
+        run_env["CUDA_VISIBLE_DEVICES"] = cfg.cuda_visible_devices
+
+    gpu_note = f" (CUDA_VISIBLE_DEVICES={cfg.cuda_visible_devices})" if cfg.cuda_visible_devices else ""
+    console.print(f"Starting vLLM [{cfg.name}] on port {cfg.port} for model {cfg.model}{gpu_note}")
     stdout = open(log_path, "a")
     stderr = subprocess.STDOUT
-    proc = subprocess.Popen(cmd, env=env, stdout=stdout, stderr=stderr)
+    proc = subprocess.Popen(cmd, env=run_env, stdout=stdout, stderr=stderr)
     return proc
 
 
@@ -98,19 +118,20 @@ def main() -> None:
     env.setdefault("VLLM_ATTENTION_BACKEND", "FLASH_ATTN")
 
     # Optional: model cache + HF token
-    model_cache = os.getenv("VM_MODEL_CACHE")
+    model_cache = os.getenv("LLM_MODEL_CACHE") or os.getenv("VM_MODEL_CACHE")
     if model_cache:
         env["HF_HOME"] = model_cache
     hf_token = os.getenv("HF_TOKEN")
     if hf_token:
         env["HUGGING_FACE_HUB_TOKEN"] = hf_token
 
-    s1 = read_server("VM1", "vm1")
-    s2 = read_server("VM2", "vm2")
+    s1 = read_server(1, "llm1")
+    s2 = read_server(2, "llm2")
+    s3 = read_server(3, "llm3")
 
-    servers = [s for s in (s1, s2) if s is not None]
+    servers = [s for s in (s1, s2, s3) if s is not None]
     if not servers:
-        console.print("[red]No servers configured. Set VM1_MODEL/VM2_MODEL in env.[/red]")
+        console.print("[red]No servers configured. Set LLM_MODEL1/LLM_MODEL2/LLM_MODEL3 in env.[/red]")
         sys.exit(1)
 
     table = Table(title="Local vLLM Servers")
