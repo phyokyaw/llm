@@ -7,7 +7,7 @@ Simple script to test response times with a few prompts.
 import time
 import requests
 import json
-from test_fixtures import all_prompts
+from .test_fixtures import all_prompts
 
 
 def quick_test(server_name: str, model: str, port: int, prompts: list, max_tokens: int = 50):
