@@ -19,7 +19,7 @@ class ServerConfig:
     model: str
     port: int
     tensor_parallel_size: int = 1
-    dtype: str = "float16"
+    dtype: str = "bfloat16"
     host: str = "0.0.0.0"
     max_model_len: int = 8192
     cuda_visible_devices: Optional[str] = None
@@ -57,9 +57,13 @@ def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
     except ValueError:
         raise SystemExit(f"Invalid TP for server {index}: {tp_str}")
 
-    dtype = choose("DTYPE", "DTYPE", "float16")
+    # Use bfloat16 for Gemma models, float16 for others
+    default_dtype = "bfloat16" if "gemma" in model.lower() else "float16"
+    dtype = choose("DTYPE", "DTYPE", default_dtype)
     host = choose("HOST", "HOST", "0.0.0.0")
-    max_len = int(choose("MAX_MODEL_LEN", "MAX_MODEL_LEN", "8192"))
+    # Use smaller max_model_len for sentence-transformers models
+    default_max_len = 128 if "sentence-transformers" in model.lower() else 8192
+    max_len = int(choose("MAX_MODEL_LEN", "MAX_MODEL_LEN", str(default_max_len)))
     cuda = get_new("CUDA_VISIBLE_DEVICES", None) or get_old("CUDA_VISIBLE_DEVICES", None)
 
     return ServerConfig(
@@ -116,6 +120,7 @@ def main() -> None:
     env = os.environ.copy()
     env.setdefault("VLLM_WORKER_USE_V2", "1")
     env.setdefault("VLLM_ATTENTION_BACKEND", "FLASH_ATTN")
+    env.setdefault("VLLM_ALLOW_LONG_MAX_MODEL_LEN", "1")
 
     # Optional: model cache + HF token
     model_cache = os.getenv("LLM_MODEL_CACHE") or os.getenv("VM_MODEL_CACHE")
