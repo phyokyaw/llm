@@ -21,8 +21,9 @@ class ServerConfig:
     tensor_parallel_size: int = 1
     dtype: str = "bfloat16"
     host: str = "0.0.0.0"
-    max_model_len: int = 8192
+    max_model_len: int = 2048
     cuda_visible_devices: Optional[str] = None
+    gpu_memory_utilization: float = 0.95
 
 
 def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
@@ -62,8 +63,17 @@ def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
     dtype = choose("DTYPE", "DTYPE", default_dtype)
     host = choose("HOST", "HOST", "0.0.0.0")
     # Use smaller max_model_len for sentence-transformers models
-    default_max_len = 128 if "sentence-transformers" in model.lower() else 8192
-    max_len = int(choose("MAX_MODEL_LEN", "MAX_MODEL_LEN", str(default_max_len)))
+    default_max_len = 128 if "sentence-transformers" in model.lower() else 2048
+    max_len_str = choose("MAX_MODEL_LEN", "MAX_MODEL_LEN",
+                         str(default_max_len))
+    max_len = int(max_len_str)
+
+    # Use lower GPU memory utilization for sentence-transformers models
+    default_gpu_util = 0.05 if "sentence-transformers" in model.lower() else 0.95
+    gpu_util_str = choose("GPU_MEMORY_UTILIZATION",
+                          "GPU_MEMORY_UTILIZATION", str(default_gpu_util))
+    gpu_util = float(gpu_util_str)
+
     cuda = get_new("CUDA_VISIBLE_DEVICES", None) or get_old("CUDA_VISIBLE_DEVICES", None)
 
     return ServerConfig(
@@ -75,6 +85,7 @@ def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
         host=host,
         max_model_len=max_len,
         cuda_visible_devices=cuda,
+        gpu_memory_utilization=gpu_util,
     )
 
 
@@ -99,6 +110,8 @@ def start_server(cfg: ServerConfig, env: dict) -> subprocess.Popen:
         str(cfg.tensor_parallel_size),
         "--max-model-len",
         str(cfg.max_model_len),
+        "--gpu-memory-utilization",
+        str(cfg.gpu_memory_utilization),
     ]
 
     run_env = env.copy()
@@ -123,9 +136,11 @@ def main() -> None:
     env.setdefault("VLLM_ALLOW_LONG_MAX_MODEL_LEN", "1")
 
     # Optional: model cache + HF token
-    model_cache = os.getenv("LLM_MODEL_CACHE") or os.getenv("VM_MODEL_CACHE")
-    if model_cache:
-        env["HF_HOME"] = model_cache
+    model_cache = os.getenv("LLM_MODEL_CACHE") or "/data"
+    env["HF_HOME"] = model_cache
+
+    # Ensure the model cache directory exists
+    os.makedirs(model_cache, exist_ok=True)
     hf_token = os.getenv("HF_TOKEN")
     if hf_token:
         env["HUGGING_FACE_HUB_TOKEN"] = hf_token
