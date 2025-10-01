@@ -23,36 +23,28 @@ class ServerConfig:
     host: str = "0.0.0.0"
     max_model_len: int = 2048
     cuda_visible_devices: Optional[str] = None
-    gpu_memory_utilization: float = 0.95
+    gpu_memory_utilization: float = 0.98
+    max_num_seqs: int = 64
 
 
 def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
-    # New schema: LLM_*{index}
-    def get_new(name: str, default: Optional[str] = None) -> Optional[str]:
-        return os.getenv(f"LLM_{name}{index}", default)
+    # Environment variable schema: *{index}
+    def get_env(name: str, default: Optional[str] = None) -> Optional[str]:
+        return os.getenv(f"{name}{index}", default)
 
-    # Backward-compat: VM{index}_*
-    def get_old(name: str, default: Optional[str] = None) -> Optional[str]:
-        return os.getenv(f"VM{index}_{name}", default)
-
-    def choose(new_key: str, old_key: str, default: Optional[str] = None) -> Optional[str]:
-        val = get_new(new_key)
-        if val is not None and val != "":
-            return val
-        return get_old(old_key, default)
-
-    model = choose("MODEL", "MODEL")
+    model = get_env("MODEL")
     if not model:
         return None
 
     default_port = "8000" if index == 1 else "8001"
-    port_str = choose("PORT", "PORT", default_port)
+    port_str = get_env("PORT", default_port)
     try:
         port = int(port_str)
     except ValueError:
         raise SystemExit(f"Invalid port for server {index}: {port_str}")
 
-    tp_str = choose("TP", "TP", None) or choose("TENSOR_PARALLEL_SIZE", "TENSOR_PARALLEL_SIZE", "1")
+    tp_str = get_env("TP", None) or get_env(
+        "TENSOR_PARALLEL_SIZE", str(ServerConfig.tensor_parallel_size))
     try:
         tp = int(tp_str)
     except ValueError:
@@ -60,24 +52,27 @@ def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
 
     # Use bfloat16 for Gemma models, float16 for others
     default_dtype = "bfloat16" if "gemma" in model.lower() else "float16"
-    dtype = choose("DTYPE", "DTYPE", default_dtype)
-    host = choose("HOST", "HOST", "0.0.0.0")
+    dtype = get_env("DTYPE", default_dtype)
+    host = get_env("HOST", ServerConfig.host)
     # Use smaller max_model_len for sentence-transformers models
-    default_max_len = 128 if "sentence-transformers" in model.lower() else 2048
-    max_len_str = choose("MAX_MODEL_LEN", "MAX_MODEL_LEN",
-                         str(default_max_len))
+    default_max_len = 128 if "sentence-transformers" in model.lower() else ServerConfig.max_model_len
+    max_len_str = get_env("MAX_MODEL_LEN", str(default_max_len))
     max_len = int(max_len_str)
 
     # Use lower GPU memory utilization for sentence-transformers models
-    default_gpu_util = 0.05 if "sentence-transformers" in model.lower() else 0.95
-    gpu_util_str = choose("GPU_MEMORY_UTILIZATION",
-                          "GPU_MEMORY_UTILIZATION", str(default_gpu_util))
+    default_gpu_util = 0.02 if "sentence-transformers" in model.lower() else ServerConfig.gpu_memory_utilization
+    gpu_util_str = get_env("GPU_MEMORY_UTILIZATION", str(default_gpu_util))
     gpu_util = float(gpu_util_str)
 
-    cuda = get_new("CUDA_VISIBLE_DEVICES", None) or get_old("CUDA_VISIBLE_DEVICES", None)
+    # Configure max_num_seqs (lower for sentence-transformers models)
+    default_max_seqs = 32 if "sentence-transformers" in model.lower() else ServerConfig.max_num_seqs
+    max_seqs_str = get_env("MAX_NUM_SEQS", str(default_max_seqs))
+    max_seqs = int(max_seqs_str)
+
+    cuda = get_env("CUDA_VISIBLE_DEVICES", None)
 
     return ServerConfig(
-        name=choose("NAME", "NAME", default_name),
+        name=get_env("NAME", default_name),
         model=model,
         port=port,
         tensor_parallel_size=tp,
@@ -86,6 +81,7 @@ def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
         max_model_len=max_len,
         cuda_visible_devices=cuda,
         gpu_memory_utilization=gpu_util,
+        max_num_seqs=max_seqs,
     )
 
 
@@ -112,6 +108,8 @@ def start_server(cfg: ServerConfig, env: dict) -> subprocess.Popen:
         str(cfg.max_model_len),
         "--gpu-memory-utilization",
         str(cfg.gpu_memory_utilization),
+        "--max-num-seqs",
+        str(cfg.max_num_seqs),
     ]
 
     run_env = env.copy()
@@ -136,7 +134,7 @@ def main() -> None:
     env.setdefault("VLLM_ALLOW_LONG_MAX_MODEL_LEN", "1")
 
     # Optional: model cache + HF token
-    model_cache = os.getenv("LLM_MODEL_CACHE") or "/data"
+    model_cache = os.getenv("MODEL_CACHE") or "/data/.cache/huggingface"
     env["HF_HOME"] = model_cache
 
     # Ensure the model cache directory exists
@@ -151,7 +149,8 @@ def main() -> None:
 
     servers = [s for s in (s1, s2, s3) if s is not None]
     if not servers:
-        console.print("[red]No servers configured. Set LLM_MODEL1/LLM_MODEL2/LLM_MODEL3 in env.[/red]")
+        console.print(
+            "[red]No servers configured. Set MODEL1/MODEL2/MODEL3 in env.[/red]")
         sys.exit(1)
 
     table = Table(title="Local vLLM Servers")
