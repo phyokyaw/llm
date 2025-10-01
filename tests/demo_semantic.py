@@ -19,7 +19,10 @@ def demo_semantic_analysis():
     
     # Load reference data from CSV
     print("Loading reference conversations from CSV...")
-    analyzer.load_reference_from_csv('reference_conversions.csv')
+    import os
+    csv_path = os.path.join(os.path.dirname(__file__),
+                            'reference_conversions.csv')
+    analyzer.load_reference_from_csv(csv_path)
     
     print(f"✅ Loaded {len(analyzer.reference_texts)} categories")
     for category, texts in analyzer.reference_texts.items():
@@ -108,7 +111,7 @@ def demo_semantic_analysis():
     
     print("\n✅ Demo completed!")
     print("\nTo run full performance testing with semantic analysis:")
-    print("python3 test_performance_enhanced.py --enable-semantics --save-report report.json")
+    print("python3 -m tests.test_performance --enable-semantics --save-report report.json")
 
 if __name__ == "__main__":
     demo_semantic_analysis()

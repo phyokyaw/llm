@@ -215,7 +215,7 @@ general_prompts = [
         if prompts:
             code += f'\n# {category.replace("_", " ").title()} prompts\n'
             code += f'{category} = [\n'
-            for prompt in prompts[:20]:  # Limit to 20 per category
+            for prompt in prompts:  # Use all prompts
                 code += f'    "{prompt}",\n'
             code += ']\n'
     
@@ -227,7 +227,7 @@ general_prompts = [
     
     code += f'''
 # Combined Myanmar prompts for LLM2
-myanmar_combined_prompts = {all_myanmar_prompts[:50]}
+myanmar_combined_prompts = {all_myanmar_prompts}
 
 # Technical prompts for both models
 technical_prompts = [
@@ -295,7 +295,10 @@ def main():
     print("🔄 Generating prompt variations from reference conversations...")
     
     # Generate variations
-    variations = generate_prompt_variations('reference_conversions.csv')
+    import os
+    csv_path = os.path.join(os.path.dirname(__file__),
+                            'reference_conversions.csv')
+    variations = generate_prompt_variations(csv_path)
     
     # Print statistics
     print("\n📊 Generated Prompt Variations:")
@@ -312,14 +315,16 @@ def main():
     fixtures_code = generate_fixtures_code(variations)
     
     # Write to file
-    with open('test_fixtures.py', 'w', encoding='utf-8') as f:
+    import os
+    fixtures_path = os.path.join(os.path.dirname(__file__), 'test_fixtures.py')
+    with open(fixtures_path, 'w', encoding='utf-8') as f:
         f.write(fixtures_code)
     
     print("✅ Updated test_fixtures.py with prompt variations!")
     print("\n💡 Usage:")
     print("  - Reference conversations are used for semantic analysis")
     print("  - Prompt variations are used for testing LLM responses")
-    print("  - Run: python3 testing/demo_semantic.py to test semantic analysis")
+    print("  - Run: python3 -m tests.demo_semantic to test semantic analysis")
 
 if __name__ == "__main__":
     main()

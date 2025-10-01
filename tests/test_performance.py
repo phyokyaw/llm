@@ -39,7 +39,10 @@ class EnhancedPerformanceTester:
         import pandas as pd
 
         try:
-            df = pd.read_csv('reference_conversions.csv')
+            import os
+            csv_path = os.path.join(os.path.dirname(
+                __file__), 'reference_conversions.csv')
+            df = pd.read_csv(csv_path)
             reference_data = {}
 
             for _, row in df.iterrows():
@@ -424,7 +427,10 @@ def main():
     if args.enable_semantics:
         print("🧠 Initializing semantic analyzer...")
         semantic_analyzer = SemanticAnalyzer()
-        semantic_analyzer.load_reference_from_csv('reference_conversions.csv')
+        import os
+        csv_path = os.path.join(os.path.dirname(
+            __file__), 'reference_conversions.csv')
+        semantic_analyzer.load_reference_from_csv(csv_path)
         print("✅ Semantic analyzer ready!")
 
     # Initialize tester

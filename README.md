@@ -10,18 +10,26 @@ This project provides enhanced performance testing for vLLM servers with semanti
 - **Vector Database**: Caches embeddings for efficient similarity calculations
 - **Detailed Reporting**: Generates comprehensive reports with recommendations
 
-## Files Overview
+## Project Structure
 
-### Core Files
-- `semantic_analyzer.py` - Main semantic analysis engine
-- `test_performance.py` - Performance testing script
-- `test_fixtures.py` - Generated prompt variations for testing
-- `demo_semantic.py` - Demo script for semantic analysis
-- `generate_variations.py` - Script to generate prompt variations from reference data
-
-### Data Files
-- `reference_conversions.csv` - Reference Myanmar conversation pairs (training data for semantic analysis)
-- `pyproject.toml` - Poetry configuration with dependencies
+```
+/workspace/llm/
+├── tests/                          # Testing package
+│   ├── __init__.py                 # Package initialization
+│   ├── README.md                   # Testing documentation
+│   ├── semantic_analyzer.py        # Semantic analysis engine
+│   ├── test_performance.py         # Main performance testing script
+│   ├── test_fixtures.py            # Generated prompt variations
+│   ├── demo_semantic.py            # Demo script for semantic analysis
+│   ├── generate_variations.py      # Script to generate prompt variations
+│   ├── quick_test.py               # Quick performance test script
+│   └── reference_conversions.csv   # Reference Myanmar conversation pairs
+├── semantic_cache/                 # Cached embeddings and models
+├── run_vllm.py                     # vLLM server runner
+├── shutdown_vllm.py                # Server shutdown script
+├── pyproject.toml                  # Poetry configuration
+└── README.md                       # This file
+```
 
 ## Installation
 
@@ -47,27 +55,38 @@ pip install sentence-transformers>=2.2.0 scikit-learn>=1.3.0 pandas>=1.5.0 numpy
 
 ### Basic Performance Testing
 ```bash
-python3 test_performance.py --server2-only
+# From project root
+python3 -m tests.test_performance --server2-only
 ```
 
 ### With Expected vs Actual Response Comparison
 ```bash
-python3 test_performance.py --server2-only --enable-semantics --save-report detailed_results.json
+python3 -m tests.test_performance --server2-only --enable-semantics --save-report detailed_results.json
 ```
 
 ### Custom Token Limits (for longer responses)
 ```bash
-python3 test_performance.py --server2-only --max-tokens 1000 --enable-semantics
+python3 -m tests.test_performance --server2-only --max-tokens 1000 --enable-semantics
 ```
 
 ### Test Specific Categories
 ```bash
-python3 test_performance.py --prompt-category myanmar_internet_outage --enable-semantics
+python3 -m tests.test_performance --prompt-category myanmar_internet_outage --enable-semantics
 ```
 
 ### Demo Semantic Analysis
 ```bash
-python3 demo_semantic.py
+python3 -m tests.demo_semantic
+```
+
+### Generate Prompt Variations
+```bash
+python3 -m tests.generate_variations
+```
+
+### Quick Performance Test
+```bash
+python3 -m tests.quick_test
 ```
 
 ## Semantic Analysis Features
@@ -141,14 +160,14 @@ Low Quality (<0.4):  2
 ## Advanced Usage
 
 ### Custom Categories
-You can add custom categories by modifying the `categorize_text()` method in `semantic_analyzer.py`.
+You can add custom categories by modifying the `categorize_text()` method in `tests/semantic_analyzer.py`.
 
 ### Batch Analysis
 ```python
-from semantic_analyzer import SemanticAnalyzer
+from tests.semantic_analyzer import SemanticAnalyzer
 
 analyzer = SemanticAnalyzer()
-analyzer.load_reference_from_csv('your_data.csv')
+analyzer.load_reference_from_csv('tests/reference_conversions.csv')
 
 # Batch analyze multiple queries
 queries = ["query1", "query2", "query3"]
@@ -183,9 +202,9 @@ analyzer = SemanticAnalyzer(model_name="paraphrase-multilingual-MiniLM-L12-v2")
 
 ## Contributing
 
-1. Add new conversation categories in `update_fixtures.py`
-2. Extend semantic analysis metrics in `semantic_analyzer.py`
-3. Add new performance metrics in `test_performance_enhanced.py`
+1. Add new conversation categories in `tests/generate_variations.py`
+2. Extend semantic analysis metrics in `tests/semantic_analyzer.py`
+3. Add new performance metrics in `tests/test_performance.py`
 
 ## License
 

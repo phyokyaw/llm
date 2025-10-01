@@ -1,4 +1,4 @@
-# Testing Directory
+# Tests Directory
 
 This directory contains all testing-related Python files for the vLLM performance testing and semantic analysis system.
 
@@ -9,6 +9,8 @@ This directory contains all testing-related Python files for the vLLM performanc
 - **`demo_semantic.py`** - Demo script for semantic similarity analysis
 - **`quick_test.py`** - Quick performance test script
 - **`generate_variations.py`** - Script to generate prompt variations from reference conversations
+- **`semantic_analyzer.py`** - Semantic analysis engine
+- **`reference_conversions.csv`** - Reference Myanmar conversation pairs
 - **`__init__.py`** - Package initialization file
 
 ## Usage
@@ -16,25 +18,25 @@ This directory contains all testing-related Python files for the vLLM performanc
 ### Running Performance Tests
 ```bash
 # From the project root directory
-python3 -m testing.test_performance --enable-semantics
+python3 -m tests.test_performance --enable-semantics
 ```
 
 ### Running Quick Tests
 ```bash
 # From the project root directory
-python3 -m testing.quick_test
+python3 -m tests.quick_test
 ```
 
 ### Running Semantic Analysis Demo
 ```bash
 # From the project root directory
-python3 -m testing.demo_semantic
+python3 -m tests.demo_semantic
 ```
 
 ### Generating Prompt Variations
 ```bash
 # From the project root directory
-python3 -m testing.generate_variations
+python3 -m tests.generate_variations
 ```
 
 ## Dependencies
@@ -45,7 +47,7 @@ The testing scripts depend on:
 
 ## Import Structure
 
-The testing package can be imported as:
+The tests package can be imported as:
 ```python
-from testing import all_prompts, EnhancedPerformanceTester, demo_semantic_analysis, SemanticAnalyzer
+from tests import all_prompts, EnhancedPerformanceTester, demo_semantic_analysis, SemanticAnalyzer
 ```
