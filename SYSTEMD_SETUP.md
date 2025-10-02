@@ -51,6 +51,11 @@ sudo /usr/local/bin/setup-vllm-service
    sudo service vllm-server start
    ```
 
+3. **Disable auto-start (if needed):**
+   ```bash
+   sudo update-rc.d vllm-server disable
+   ```
+
 ### For Systems without Init (Containers, etc.)
 
 Add to crontab for auto-start:
@@ -187,6 +192,10 @@ To remove the service:
 # Disable systemd service
 sudo systemctl disable vllm-server.service
 sudo systemctl stop vllm-server.service
+
+# Disable SysV init service
+sudo update-rc.d vllm-server disable
+sudo service vllm-server stop
 
 # Remove files
 sudo rm -f /etc/systemd/system/vllm-server.service
