@@ -86,7 +86,8 @@ def read_server(index: int, default_name: str) -> Optional[ServerConfig]:
 
 
 def start_server(cfg: ServerConfig, env: dict) -> subprocess.Popen:
-    log_dir = os.path.expanduser("~/vllm_logs")
+    # Use environment variable for log directory, fallback to ~/vllm_logs
+    log_dir = os.getenv("VLLM_LOG_DIR", os.path.expanduser("~/vllm_logs"))
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, f"vllm_{cfg.name or cfg.port}.log")
 
