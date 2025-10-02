@@ -51,7 +51,98 @@ pip install sentence-transformers>=2.2.0 scikit-learn>=1.3.0 pandas>=1.5.0 numpy
 - The semantic analyzer will automatically download and cache the sentence transformer model on first use
 - Poetry manages dependencies in `pyproject.toml` under `[tool.poetry.group.dev.dependencies]`
 
-## Usage
+## vLLM FastAPI Server Access
+
+### SSH Tunneling Setup
+
+To access the vLLM FastAPI servers remotely, you can use SSH tunneling to forward the server ports to your local machine.
+
+#### Step 1: Add SSH Key to Instance
+1. Go to your cloud instance management console
+2. Navigate to **Instances** section
+3. Add your SSH public key to the instance
+
+#### Step 2: SSH Tunnel Connection
+
+Use the following SSH tunnel commands to access each server:
+
+**For LLM1 (Base Model) - Port 8000:**
+```bash
+ssh -p <ssh_port> root@<instance_ip> -L 8000:localhost:8000
+```
+
+**For LLM2 (Fine-tuned Model) - Port 8001:**
+```bash
+ssh -p <ssh_port> root@<instance_ip> -L 8001:localhost:8001
+```
+
+**For LLM3 (Sentence Transformer) - Port 8002:**
+```bash
+ssh -p <ssh_port> root@<instance_ip> -L 8002:localhost:8002
+```
+
+#### Step 3: Access the API
+
+Once the SSH tunnel is established, you can access the vLLM FastAPI servers locally:
+
+**Check available models:**
+```bash
+curl http://localhost:8000/v1/models
+curl http://localhost:8001/v1/models
+curl http://localhost:8002/v1/models
+```
+
+**Make chat completions:**
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "aisingapore/Gemma-SEA-LION-v3-9B-IT",
+    "messages": [{"role": "user", "content": "Hello, how are you?"}],
+    "max_tokens": 100
+  }'
+```
+
+**Example with Myanmar language:**
+```bash
+curl -X POST http://localhost:8001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "NanEi/fr_sealion_merge_bot_v1-5",
+    "messages": [{"role": "user", "content": "မင်္ဂလာပါ၊ ဘယ်လိုနေလဲ?"}],
+    "max_tokens": 150
+  }'
+```
+
+#### Server Configuration
+
+The servers are configured as follows:
+
+| Server | Port | Model | Description |
+|--------|------|-------|-------------|
+| LLM1 | 8000 | `aisingapore/Gemma-SEA-LION-v3-9B-IT` | Base multilingual model |
+| LLM2 | 8001 | `NanEi/fr_sealion_merge_bot_v1-5` | Fine-tuned Myanmar model |
+| LLM3 | 8002 | Sentence Transformer | Embedding model for semantic analysis |
+
+#### Service Management
+
+The vLLM servers run as systemd services and start automatically on boot:
+
+```bash
+# Check service status
+sudo service vllm-server status
+
+# Start/stop/restart service
+sudo service vllm-server start
+sudo service vllm-server stop
+sudo service vllm-server restart
+
+# View logs
+sudo tail -f /var/log/vllm/vllm-server.log
+sudo tail -f /var/log/vllm/vllm_*.log
+```
+
+For detailed service setup instructions, see [SYSTEMD_SETUP.md](SYSTEMD_SETUP.md).
 
 ### Basic Performance Testing
 ```bash
